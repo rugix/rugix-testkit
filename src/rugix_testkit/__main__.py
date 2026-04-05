@@ -175,12 +175,14 @@ def _parse_pflash(value: str) -> Pflash:
     """
     Parse a pflash specification.
 
-    Format: ``file[,key=value...]``
+    Format: ``[file][,key=value...]``
 
     Supported keys: ``format``, ``readonly``, ``size``.
+    
+    An empty file creates a blank image (requires ``size``).
     """
     parts = value.split(",")
-    file = Path(parts[0])
+    file = Path(parts[0]) if parts[0] else None
     kwargs: dict[str, Any] = {}
     for part in parts[1:]:
         k, _, v = part.partition("=")
