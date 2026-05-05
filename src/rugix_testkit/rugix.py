@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .result import CmdResult
@@ -70,12 +71,49 @@ class RugixCtrl:
         *,
         reboot: str = "no",
         insecure: bool = True,
+        root_cert: str | None = None,
+        check: bool = True,
+        timeout: float = 300,
     ) -> CmdResult:
-        """Install an update bundle from *source*."""
-        cmd = ["rugix-ctrl", "update", "install", source, "--reboot", reboot]
+        """Install an update bundle from *source*.
+
+        *source* is forwarded verbatim to ``rugix-ctrl`` — typically a
+        URL or a path on the VM. For a bundle that lives on the host,
+        use :meth:`update_install_file`.
+        """
+        cmd = ["rugix-ctrl", "update", "install", "--reboot", reboot]
         if insecure:
             cmd.append("--insecure-skip-bundle-verification")
-        return self.vm.run(cmd, hide=True, timeout=300)
+        if root_cert is not None:
+            cmd += ["--root-cert", root_cert]
+        cmd.append(source)
+        return self.vm.run(cmd, hide=True, timeout=timeout, check=check)
+
+    def update_install_file(
+        self,
+        local_bundle: Path,
+        *,
+        remote_path: str = "/tmp/rugix-update.rugixb",
+        reboot: str = "no",
+        insecure: bool = True,
+        root_cert: str | None = None,
+        check: bool = True,
+        timeout: float = 600,
+    ) -> CmdResult:
+        """Upload *local_bundle* to the VM and install it from there.
+
+        Uploads to *remote_path* via SFTP, then delegates to
+        :meth:`update_install`.
+        """
+        self.vm.upload(local_bundle, remote_path)
+        return self.update_install(
+            remote_path,
+            reboot=reboot,
+            insecure=insecure,
+            root_cert=root_cert,
+            check=check,
+            timeout=timeout,
+        )
 
     def system_commit(self) -> CmdResult:
         """Commit the current system state."""

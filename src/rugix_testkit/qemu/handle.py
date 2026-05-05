@@ -30,8 +30,15 @@ class VMHandle:
             result = vm.run(["uname", "-a"])
     """
 
-    def __init__(self, config: VMConfig, *, work_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        config: VMConfig,
+        *,
+        work_dir: Path | None = None,
+        private_key: Path | None = None,
+    ) -> None:
         self._qemu = QemuVM(config, work_dir=work_dir)
+        self._private_key = private_key
         self._conn: fabric.Connection | None = None
         self._ssh_port: int | None = None
         self._command_history: list[CmdResult] = []
@@ -54,6 +61,7 @@ class VMHandle:
         *,
         work_dir: Path | None = None,
         boot_timeout: float = 300,
+        private_key: Path | None = None,
     ) -> VMHandle:
         """
         Prepare a VM, start it, and wait for SSH.
@@ -62,13 +70,19 @@ class VMHandle:
             config: VM configuration.
             work_dir: Persistent work directory (temp dir if *None*).
             boot_timeout: Seconds to wait for SSH after boot.
+            private_key: Private-key file for public-key SSH auth. When
+                omitted, falls back to passwordless ``auth_none``.
         """
-        handle = cls(config, work_dir=work_dir)
+        handle = cls(config, work_dir=work_dir, private_key=private_key)
         handle._qemu.prepare()
         handle._ssh_port = handle._qemu.start()
 
         try:
-            handle._conn = wait_for_ssh(port=handle._ssh_port, timeout=boot_timeout)
+            handle._conn = wait_for_ssh(
+                port=handle._ssh_port,
+                timeout=boot_timeout,
+                private_key=private_key,
+            )
         except Exception:
             logger.error("Boot failed. Serial output:\n%s", handle._qemu.serial_output)
             handle._qemu.stop()
@@ -94,6 +108,11 @@ class VMHandle:
         result = self.run(args, hide=True, **kwargs)
         data: JsonObject = json.loads(result.stdout)
         return data
+
+    def upload(self, local: Path, remote: str) -> None:
+        """Copy *local* to *remote* on the VM via SFTP."""
+        assert self._conn is not None
+        self._conn.put(str(local), remote=remote)
 
     def close(self) -> None:
         """Close SSH, stop QEMU, and clean up the work directory."""
@@ -130,7 +149,11 @@ class VMHandle:
         time.sleep(10)
 
         remaining = max(0, deadline - time.monotonic())
-        self._conn = wait_for_ssh(port=self._ssh_port, timeout=remaining or 30)
+        self._conn = wait_for_ssh(
+            port=self._ssh_port,
+            timeout=remaining or 30,
+            private_key=self._private_key,
+        )
 
     def __enter__(self) -> VMHandle:
         return self

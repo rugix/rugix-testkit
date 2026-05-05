@@ -6,6 +6,7 @@ import json
 import logging
 import shlex
 import time
+from pathlib import Path
 
 import fabric
 import paramiko
@@ -21,28 +22,18 @@ def connect_ssh(
     port: int = 2222,
     user: str = "root",
     connect_timeout: float = 10,
+    private_key: Path | paramiko.PKey | None = None,
 ) -> fabric.Connection:
     """
-    Open a Fabric SSH connection.
+    Open a Fabric SSH connection to a test VM.
 
-    Defaults are tailored for test VMs: passwordless ``root`` access
-    with no key lookup or agent forwarding. Not suitable for
-    production SSH connections.
+    Without *private_key*, authenticates with SSH ``none`` (passwordless
+    ``root``). With *private_key* (a path or a paramiko ``PKey``), uses
+    public-key authentication. Not suitable for production connections.
     """
-    # Fabric doesn't support SSH "none" auth, so we set up the
-    # paramiko transport manually to avoid password auth attempts.
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    sock = paramiko.Transport((host, port))
-    sock.connect(username=user)
-    sock.auth_none(user)
-    client._transport = sock
-
-    conn = fabric.Connection(host=host, port=port, user=user)
-    conn.client = client
-    conn.transport = sock
-    logger.info("SSH connected to %s:%d", host, port)
-    return conn
+    if private_key is not None:
+        return _connect_publickey(host, port, user, private_key, connect_timeout)
+    return _connect_auth_none(host, port, user)
 
 
 def wait_for_ssh(
@@ -51,11 +42,12 @@ def wait_for_ssh(
     user: str = "root",
     timeout: float = 300,
     interval: float = 5,
+    private_key: Path | paramiko.PKey | None = None,
 ) -> fabric.Connection:
     """
-    Poll until SSH becomes available.
+    Poll until SSH becomes available and return the open connection.
 
-    Returns a connected :class:`fabric.Connection`.
+    See :func:`connect_ssh` for *private_key* semantics.
     """
     deadline = time.monotonic() + timeout
     last_error: Exception | None = None
@@ -68,7 +60,13 @@ def wait_for_ssh(
     try:
         while time.monotonic() < deadline:
             try:
-                conn = connect_ssh(host, port, user, connect_timeout=min(interval, 10))
+                conn = connect_ssh(
+                    host,
+                    port,
+                    user,
+                    connect_timeout=min(interval, 10),
+                    private_key=private_key,
+                )
                 paramiko_logger.setLevel(original_level)
                 return conn
             except Exception as exc:
@@ -128,3 +126,57 @@ def run_json(
     result = run_cmd(conn, args, check=check, hide=True, **kwargs)
     data: JsonObject = json.loads(result.stdout)
     return data
+
+
+def _connect_auth_none(host: str, port: int, user: str) -> fabric.Connection:
+    # Fabric doesn't support SSH "none" auth, so we set up the
+    # paramiko transport manually to avoid password auth attempts.
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    sock = paramiko.Transport((host, port))
+    sock.connect(username=user)
+    sock.auth_none(user)
+    client._transport = sock
+
+    conn = fabric.Connection(host=host, port=port, user=user)
+    conn.client = client
+    conn.transport = sock
+    logger.info("SSH connected to %s:%d (auth_none)", host, port)
+    return conn
+
+
+def _connect_publickey(
+    host: str,
+    port: int,
+    user: str,
+    key: Path | paramiko.PKey,
+    connect_timeout: float,
+) -> fabric.Connection:
+    pkey = _load_key(key) if isinstance(key, Path) else key
+    conn = fabric.Connection(
+        host=host,
+        port=port,
+        user=user,
+        connect_timeout=connect_timeout,
+        connect_kwargs={
+            "pkey": pkey,
+            "look_for_keys": False,
+            "allow_agent": False,
+        },
+    )
+    conn.open()
+    logger.info("SSH connected to %s:%d (publickey)", host, port)
+    return conn
+
+
+def _load_key(path: Path) -> paramiko.PKey:
+    """Try the common private-key formats and return the first one that loads."""
+    errors: list[Exception] = []
+    for cls in (paramiko.RSAKey, paramiko.Ed25519Key, paramiko.ECDSAKey):
+        try:
+            return cls.from_private_key_file(str(path))
+        except paramiko.SSHException as exc:
+            errors.append(exc)
+    raise paramiko.SSHException(
+        f"Could not load SSH private key {path!r}: {[str(e) for e in errors]}"
+    )

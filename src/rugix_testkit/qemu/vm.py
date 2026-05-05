@@ -6,6 +6,7 @@ import logging
 import os
 import platform
 import shutil
+import stat
 import subprocess
 import tempfile
 import threading
@@ -86,6 +87,9 @@ class QemuVM:
                 if pf.file is None or not pf.file.exists():
                     raise FileNotFoundError(f"Pflash image not found: {pf.file}")
                 shutil.copy2(pf.file, dst)
+                # ``copy2`` preserves source mode; force writable so that
+                # read-only firmware sources (e.g. nix-built OVMF) work.
+                dst.chmod(dst.stat().st_mode | stat.S_IWUSR)
 
     def run(self) -> int:
         """
