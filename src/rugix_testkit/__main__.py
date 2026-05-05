@@ -178,7 +178,7 @@ def _parse_pflash(value: str) -> Pflash:
     Format: ``[file][,key=value...]``
 
     Supported keys: ``format``, ``readonly``, ``size``.
-    
+
     An empty file creates a blank image (requires ``size``).
     """
     parts = value.split(",")
