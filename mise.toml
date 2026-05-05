@@ -1,0 +1,29 @@
+[tools]
+uv = "latest"
+python = "3.11"
+
+[tasks.test]
+description = "Run tests."
+run = 'uv run --group dev pytest tests/ "$@"'
+
+[tasks.typecheck]
+description = "Run type checking."
+run = "uv run --group dev mypy src/"
+
+[tasks.lint]
+description = "Run linting and format checking."
+run = '''
+uv run --group dev ruff check src/ tests/
+uv run --group dev ruff format --check src/ tests/
+'''
+
+[tasks.fmt]
+description = "Auto-fix lint errors and format code."
+run = '''
+uv run --group dev ruff check --fix src/ tests/
+uv run --group dev ruff format src/ tests/
+'''
+
+[tasks.check]
+description = "Run all checks (lint, format, typecheck, test)."
+depends = ["lint", "typecheck", "test"]
