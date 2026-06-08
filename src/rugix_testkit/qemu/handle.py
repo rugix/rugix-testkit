@@ -54,6 +54,14 @@ class VMHandle:
         """Captured serial console output from QEMU."""
         return self._qemu.serial_output
 
+    def write_serial(self, data: bytes) -> None:
+        """Write raw bytes to the VM's serial console."""
+        self._qemu.write_serial(data)
+
+    def wait_for_serial(self, text: str, *, timeout: float = 30) -> str:
+        """Wait until *text* appears in the captured serial output."""
+        return self._qemu.wait_for_serial(text, timeout=timeout)
+
     @classmethod
     def start(
         cls,

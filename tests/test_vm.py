@@ -1,5 +1,6 @@
 """Tests for QEMU VM process management (pure logic, no QEMU required)."""
 
+import io
 from pathlib import Path
 from unittest.mock import patch
 
@@ -170,3 +171,38 @@ class TestBuildCmd:
         assert cmd[m_idx + 1] == "2048"
         smp_idx = cmd.index("-smp")
         assert cmd[smp_idx + 1] == "8"
+
+
+class TestSerial:
+    def test_write_serial_writes_to_qemu_stdin(self):
+        vm = QemuVM(VMConfig(arch="x86_64"))
+        stdin = io.BytesIO()
+        vm._process = _FakeProcess(stdin=stdin)
+
+        vm.write_serial(b"x\n")
+
+        assert stdin.getvalue() == b"x\n"
+
+    def test_write_serial_requires_running_process(self):
+        vm = QemuVM(VMConfig(arch="x86_64"))
+
+        try:
+            vm.write_serial(b"x")
+        except RuntimeError as error:
+            assert "not running" in str(error)
+        else:
+            raise AssertionError("expected RuntimeError")
+
+    def test_wait_for_serial_returns_output(self):
+        vm = QemuVM(VMConfig(arch="x86_64"))
+        vm._serial_log.append("boot\nready\n")
+
+        assert vm.wait_for_serial("ready", timeout=0.1) == "boot\nready\n"
+
+
+class _FakeProcess:
+    def __init__(self, *, stdin: io.BytesIO) -> None:
+        self.stdin = stdin
+
+    def poll(self) -> None:
+        return None

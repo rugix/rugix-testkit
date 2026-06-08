@@ -10,6 +10,7 @@ import stat
 import subprocess
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 from .config import VMConfig, find_free_port
@@ -54,6 +55,25 @@ class QemuVM:
     def is_running(self) -> bool:
         """Whether the QEMU process is currently running."""
         return self._process is not None and self._process.poll() is None
+
+    def write_serial(self, data: bytes) -> None:
+        """Write raw bytes to the VM's serial console."""
+        if self._process is None or self._process.stdin is None:
+            raise RuntimeError("QEMU process is not running")
+        self._process.stdin.write(data)
+        self._process.stdin.flush()
+
+    def wait_for_serial(self, text: str, *, timeout: float = 30) -> str:
+        """Wait until *text* appears in the captured serial output."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            output = self.serial_output
+            if text in output:
+                return output
+            if self._process is not None and self._process.poll() is not None:
+                break
+            time.sleep(0.1)
+        raise TimeoutError(f"serial output did not contain {text!r}")
 
     def prepare(self) -> None:
         """Create overlays and firmware copies in the work directory."""
@@ -216,13 +236,17 @@ class QemuVM:
 
     def _read_serial(self) -> None:
         assert self._process is not None and self._process.stdout is not None
+        fd = self._process.stdout.fileno()
         try:
-            for line in iter(self._process.stdout.readline, b""):
-                if self._stop_event.is_set():
+            while not self._stop_event.is_set():
+                # Use `os.read` to bypass Python file buffering. Serial prompts
+                # may not end in a newline and need to be captured promptly.
+                chunk = os.read(fd, 4096)
+                if not chunk:
                     break
-                decoded = line.decode("utf-8", errors="replace")
+                decoded = chunk.decode("utf-8", errors="replace")
                 self._serial_log.append(decoded)
-                logger.debug("serial: %s", decoded.rstrip())
+                logger.debug("serial: %r", decoded)
         except (ValueError, OSError):
             pass
 
