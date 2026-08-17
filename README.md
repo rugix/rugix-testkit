@@ -1,8 +1,9 @@
 # Rugix Testkit
 
 > [!NOTE]
-> This is an internal project used for testing [Rugix](https://rugix.org) builds.
-> It is not intended for general use and the API may change without notice.
+> **Support:** This is an internal project used for testing [Rugix](https://rugix.org)
+> builds. It is not intended for general use, and its API may change without
+> notice.
 
 Testing toolkit for Rugix providing QEMU virtual machine management and a
 `rugix-ctrl` interface for integration testing of A/B system updates.
