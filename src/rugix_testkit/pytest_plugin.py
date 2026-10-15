@@ -108,7 +108,10 @@ def ssh_key(rugix_project: Path) -> Path:
 
 @pytest.fixture(scope="session")
 def bakery_parameters() -> Parameters:
-    """Recipe parameter overrides for all bakes. Override to add parameters."""
+    """Recipe parameter overrides for all bakes. Override to add parameters.
+
+    Bakery matches overrides by recipe name without the repository prefix.
+    """
     return {}
 
 
@@ -127,10 +130,10 @@ def bakery(
     if hasattr(pytestconfig, "workerinput"):
         run_dir = run_dir.parent
     ssh_parameters: Mapping[str, str | bool | int] = {
-        **bakery_parameters.get("core/ssh", {}),
+        **bakery_parameters.get("ssh", {}),
         "root_authorized_keys": ensure_ssh_key(ssh_key),
     }
-    parameters = {**bakery_parameters, "core/ssh": ssh_parameters}
+    parameters = {**bakery_parameters, "ssh": ssh_parameters}
     return BakeryBuilder(rugix_project, run_dir, parameters=parameters)
 
 

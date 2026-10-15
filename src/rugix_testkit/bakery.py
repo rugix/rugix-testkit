@@ -20,7 +20,10 @@ from .locks import exclusive_lock
 logger = logging.getLogger(__name__)
 
 Parameters = Mapping[str, Mapping[str, str | bool | int]]
-"""Recipe parameter overrides, keyed by recipe and then by parameter name."""
+"""Recipe parameter overrides, keyed by recipe name and then by parameter name.
+
+Recipe names do not include the repository, e.g., ``ssh`` for ``core/ssh``.
+"""
 
 
 class BakeryBuilder:
