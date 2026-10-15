@@ -4,6 +4,9 @@ parent = "core/debian-trixie"
 
 recipes = [
     "core/debian-grub-setup",
+    # Child layers cannot add recipes depending on `core/rugix-ctrl` because it
+    # fails when it runs twice.
+    "core/rugix-ctrl-daemon",
     "core/ssh",
     "network",
 ]
