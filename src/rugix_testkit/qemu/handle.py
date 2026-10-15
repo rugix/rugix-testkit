@@ -147,7 +147,8 @@ class VMHandle:
             result = self.run(args, check=False, hide=True, **kwargs)
         except Exception:
             return
-        if not result.ok:
+        # Paramiko reports -1 when the connection closes without an exit code.
+        if result.return_code not in (0, -1):
             raise CmdError(result)
 
     def wait_for_reboot(self, timeout: float = 300) -> None:
