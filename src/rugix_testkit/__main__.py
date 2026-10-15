@@ -86,7 +86,7 @@ def _cmd_ssh(args: argparse.Namespace) -> int:
                     "UserKnownHostsFile=/dev/null",
                     "-p",
                     str(vm._ssh_port),
-                    "root@localhost",
+                    "root@127.0.0.1",
                 ]
             )
             return proc.returncode
