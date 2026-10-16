@@ -60,7 +60,7 @@ class BakeryBuilder:
         image = output / "vm.img"
 
         def bake() -> None:
-            self.run(["bake", "image", *self._bake_args, system])
+            self._run(["bake", "image", *self._bake_args, system])
             shutil.copyfile(output / "system.img", image)
 
         self._bake_once(f"image-{system}", bake)
@@ -70,15 +70,19 @@ class BakeryBuilder:
         """Bake an update bundle. Returns the path to ``system.rugixb``."""
         self._bake_once(
             f"bundle-{system}",
-            lambda: self.run(["bake", "bundle", *self._bake_args, system]),
+            lambda: self._run(["bake", "bundle", *self._bake_args, system]),
         )
         return self.project_dir / "build" / system / "system.rugixb"
 
     def run(self, args: list[str]) -> None:
-        """Run ``run-bakery`` with *args* in the project directory.
+        """Run ``run-bakery`` with *args*, e.g., ``["test", "<workflow>"]``.
 
-        Callers must not run this concurrently with bakes of the project.
+        The command runs exclusively, like bakes.
         """
+        with exclusive_lock(self.run_dir / "bakery.lock"):
+            self._run(args)
+
+    def _run(self, args: list[str]) -> None:
         cmd = ["./run-bakery", *args]
         logger.info("bakery: %s", " ".join(cmd))
         env = os.environ.copy()
