@@ -74,8 +74,12 @@ class BakeryBuilder:
         )
         return self.project_dir / "build" / system / "system.rugixb"
 
+    def test(self, workflow: str) -> None:
+        """Run a ``rugix-bakery test`` workflow with the parameter overrides."""
+        self.run(["test", *self._bake_args, workflow])
+
     def run(self, args: list[str]) -> None:
-        """Run ``run-bakery`` with *args*, e.g., ``["test", "<workflow>"]``.
+        """Run ``run-bakery`` with *args*, for example, a ``bundler`` command.
 
         The command runs exclusively, like bakes.
         """
