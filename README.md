@@ -44,7 +44,7 @@ addopts = "--dist loadfile"
 
 The project's systems build on the `rugix-testkit/debian-efi` layer. It
 contains Debian, GRUB for the `generic-grub-efi` target, Rugix Ctrl with its
-privileged daemon, an SSH server, and DHCP networking:
+privileged daemon, an SSH server, DHCP networking, and curl:
 
 ```toml
 # rugix-bakery.toml
