@@ -10,14 +10,18 @@ from .locks import exclusive_lock
 
 
 def ensure_ssh_key(path: Path) -> str:
-    """Create an RSA key pair at *path* unless it exists.
+    """Create an RSA key pair at *path* and ``<path>.pub`` unless it exists.
 
-    Returns the public key in ``authorized_keys`` format. The key is kept
-    across runs because Bakery caches layers containing it.
+    Returns the public key in ``authorized_keys`` format. Keeping the key
+    across runs lets Bakery reuse cached layers that contain it.
     """
+    public_path = path.with_name(f"{path.name}.pub")
     with exclusive_lock(path.with_name(f"{path.name}.lock")):
-        if not path.exists():
+        if not public_path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
-            paramiko.RSAKey.generate(3072).write_private_key_file(str(path))
-        key = paramiko.RSAKey.from_private_key_file(str(path))
-    return f"{key.get_name()} {key.get_base64()} rugix-testkit"
+            key = paramiko.RSAKey.generate(3072)
+            key.write_private_key_file(str(path))
+            public_path.write_text(
+                f"{key.get_name()} {key.get_base64()} rugix-testkit\n"
+            )
+    return public_path.read_text().strip()
