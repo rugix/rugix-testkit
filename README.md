@@ -127,6 +127,14 @@ layers. Bakery does not track the content of mounted binaries, so delete the
 project's `.rugix` directory after rebuilding binaries that a cached layer
 installed.
 
+### Test Report
+
+When `GITHUB_STEP_SUMMARY` is set, as in GitHub Actions, the plugin appends a
+test report to the job summary. The report lists each test with its outcome,
+its duration, and the first paragraph of its docstring as description, followed
+by the details of failures. Set `rugix_report_title` in the pytest
+configuration to change the report's heading.
+
 ## Prerequisites
 
 System tests require a container runtime (Podman or Docker) for Rugix Bakery,

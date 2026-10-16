@@ -34,6 +34,8 @@ from .qemu.config import VMConfig
 from .qemu.efi import amd64_efi_config
 from .qemu.handle import VMHandle
 from .qemu.vm import QemuVM
+from .report import DESCRIPTION_PROPERTY, describe
+from .report import configure as configure_report
 from .rugix import RugixCtrl
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=".",
     )
     parser.addini("rugix_boot_system", "System booted by the `vm` fixture")
+    parser.addini(
+        "rugix_report_title",
+        "Heading of the test report in the GitHub Actions job summary",
+        default="System Tests",
+    )
     parser.addoption(
         "--test-outputs-dir",
         default="test-outputs",
@@ -66,11 +73,14 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         f"extended: test outside the default suite (run with {EXTENDED_ENV}=1)",
     )
+    configure_report(config)
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
+    for item in items:
+        item.user_properties.append((DESCRIPTION_PROPERTY, describe(item)))
     if os.environ.get(EXTENDED_ENV):
         return
     skip = pytest.mark.skip(reason=f"set {EXTENDED_ENV}=1 to enable")
