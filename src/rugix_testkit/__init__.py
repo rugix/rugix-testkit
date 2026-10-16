@@ -1,4 +1,4 @@
-"""Rugix testing toolkit — QEMU VM management and rugix-ctrl interface."""
+"""Rugix testing toolkit: QEMU VM management and a Rugix Ctrl interface."""
 
 from importlib.metadata import PackageNotFoundError, version
 

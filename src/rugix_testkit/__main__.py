@@ -75,7 +75,7 @@ def _cmd_ssh(args: argparse.Namespace) -> int:
                 print(result.stderr, end="", file=sys.stderr)
             return result.return_code
     else:
-        # Interactive SSH — hand off to ssh binary, clean up QEMU after.
+        # Interactive SSH: hand off to the ssh binary and clean up QEMU after.
         try:
             proc = subprocess.run(
                 [

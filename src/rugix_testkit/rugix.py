@@ -77,7 +77,7 @@ class RugixCtrl:
     ) -> CmdResult:
         """Install an update bundle from *source*.
 
-        *source* is forwarded verbatim to ``rugix-ctrl`` — typically a
+        *source* is forwarded verbatim to ``rugix-ctrl``, typically a
         URL or a path on the VM. For a bundle that lives on the host,
         use :meth:`update_install_file`.
         """
