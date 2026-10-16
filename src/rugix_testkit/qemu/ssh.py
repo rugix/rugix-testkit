@@ -112,11 +112,14 @@ def run_json(
 
 
 def _has_ssh_banner(host: str, port: int) -> bool:
+    prefix = b""
     try:
         with socket.create_connection((host, port), timeout=2) as sock:
-            return sock.recv(4) == b"SSH-"
+            while len(prefix) < 4 and (chunk := sock.recv(4 - len(prefix))):
+                prefix += chunk
     except OSError:
         return False
+    return prefix == b"SSH-"
 
 
 def _connect_auth_none(host: str, port: int, user: str) -> fabric.Connection:

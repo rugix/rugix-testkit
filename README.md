@@ -65,7 +65,13 @@ parent = "rugix-testkit/debian-efi"
 The base layer installs the Rugix Ctrl binary that the project mounts into
 the Bakery container with `RUGIX_BINARIES_DIR`, falling back to the binary
 shipped with the Bakery image. Copy the `run-bakery` script from an existing
-test project.
+test project. It runs the Bakery image named by `RUGIX_BAKERY_IMAGE`, which
+must be available locally:
+
+```sh
+export RUGIX_BAKERY_IMAGE=ghcr.io/rugix/rugix-bakery:branch-main
+podman pull "$RUGIX_BAKERY_IMAGE"
+```
 
 A test requests the `vm` fixture to boot the system and the `rugix` fixture to
 control Rugix Ctrl on it:
@@ -97,6 +103,7 @@ def test_update(
 | `boot_system` | System booted by `vm`. Override it in a module to boot another system. |
 | `boot_timeout` | Seconds to wait for SSH after starting a VM. |
 | `start_vm` | Starts a VM from a `VMConfig`, for example, one with a TPM. |
+| `start_qemu` | Starts a VM without SSH, for example, to check the serial console. |
 | `vm` | A VM running `boot_system`. |
 | `rugix` | Rugix Ctrl on `vm`. |
 | `ssh_key` | Private key that baked systems authorize for `root`. |

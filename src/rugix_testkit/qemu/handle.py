@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 import fabric
+import paramiko
+from invoke.exceptions import CommandTimedOut, ThreadException
 
 from ..result import CmdError, CmdResult
 from ..types import JsonObject
@@ -109,8 +111,10 @@ class VMHandle:
     def run(self, args: list[str], *, check: bool = True, **kwargs: Any) -> CmdResult:
         """Run a command on the VM over SSH."""
         assert self._conn is not None
-        result = run_cmd(self._conn, args, check=check, **kwargs)
+        result = run_cmd(self._conn, args, check=False, **kwargs)
         self._command_history.append(result)
+        if check and not result.ok:
+            raise CmdError(result)
         return result
 
     def run_json(self, args: list[str], **kwargs: Any) -> JsonObject:
@@ -144,8 +148,8 @@ class VMHandle:
         drops.
         """
         try:
-            result = self.run(args, check=False, hide=True, **kwargs)
-        except Exception:
+            result = self.run(args, check=False, **{"hide": True, **kwargs})
+        except _DISCONNECT_ERRORS:
             return
         # Paramiko reports -1 when the connection closes without an exit code.
         if result.return_code not in (0, -1):
@@ -168,8 +172,8 @@ class VMHandle:
             boot_id: str | None
             try:
                 boot_id = _boot_id(conn)
-            except Exception:
-                # The shutting-down system may drop the connection.
+            except (*_DISCONNECT_ERRORS, CommandTimedOut):
+                # The shutting-down system may drop or stall the connection.
                 boot_id = self._boot_id
             if boot_id != self._boot_id:
                 self._conn = conn
@@ -195,6 +199,10 @@ class VMHandle:
             )
 
 
+_DISCONNECT_ERRORS = (OSError, EOFError, paramiko.SSHException, ThreadException)
+"""Errors raised when an SSH connection drops during a command."""
+
+
 def _boot_id(conn: fabric.Connection) -> str:
     path = "/proc/sys/kernel/random/boot_id"
-    return run_cmd(conn, ["cat", path], hide=True).stdout.strip()
+    return run_cmd(conn, ["cat", path], hide=True, timeout=10).stdout.strip()

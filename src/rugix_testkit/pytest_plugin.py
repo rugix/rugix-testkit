@@ -33,6 +33,7 @@ from .keys import ensure_ssh_key
 from .qemu.config import VMConfig
 from .qemu.efi import amd64_efi_config
 from .qemu.handle import VMHandle
+from .qemu.vm import QemuVM
 from .rugix import RugixCtrl
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ EXTENDED_ENV = "RUGIX_TESTS_EXTENDED"
 QEMU_HOST_ADDRESS = "10.0.2.2"
 """Address of the host as seen from a VM using QEMU's user networking."""
 
-_VMS = pytest.StashKey[list[VMHandle]]()
+_VMS = pytest.StashKey[list[VMHandle | QemuVM]]()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -199,6 +200,31 @@ def start_vm(
 
 
 @pytest.fixture
+def start_qemu(
+    request: pytest.FixtureRequest,
+) -> Generator[Callable[[VMConfig], QemuVM]]:
+    """Starts VMs without connecting via SSH, for example, to check the serial
+    console of a failing boot. The VMs are stopped after the test.
+
+    The serial output of each VM is saved to the test outputs directory.
+    """
+    vms: list[QemuVM] = []
+
+    def start(config: VMConfig) -> QemuVM:
+        qemu = QemuVM(config)
+        qemu.prepare()
+        vms.append(qemu)
+        qemu.start()
+        request.node.stash.setdefault(_VMS, []).append(qemu)
+        return qemu
+
+    yield start
+    for qemu in vms:
+        qemu.stop()
+        qemu.cleanup()
+
+
+@pytest.fixture
 def vm(
     bakery: BakeryBuilder,
     boot_system: str,
@@ -224,9 +250,10 @@ def _save_vm_outputs(item: pytest.Item) -> None:
     for index, handle in enumerate(handles):
         suffix = f"-{index}" if index else ""
         (test_dir / f"serial{suffix}.log").write_text(handle.serial_output)
-        (test_dir / f"commands{suffix}.log").write_text(
-            "".join(f"{cmd}\n\n" for cmd in handle.command_history)
-        )
+        if isinstance(handle, VMHandle):
+            (test_dir / f"commands{suffix}.log").write_text(
+                "".join(f"{cmd}\n\n" for cmd in handle.command_history)
+            )
 
 
 class _QuietHandler(SimpleHTTPRequestHandler):
