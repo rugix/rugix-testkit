@@ -64,7 +64,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--test-outputs-dir",
         default="test-outputs",
-        help="directory for serial logs and command histories of test VMs",
+        help="directory for bake logs, VM serial logs, and command histories",
     )
 
 
@@ -142,7 +142,12 @@ def bakery(
         "root_authorized_keys": ensure_ssh_key(ssh_key),
     }
     parameters = {**bakery_parameters, "core/ssh": ssh_parameters}
-    return BakeryBuilder(rugix_project, run_dir, parameters=parameters)
+    return BakeryBuilder(
+        rugix_project,
+        run_dir,
+        parameters=parameters,
+        bake_log_dir=Path(pytestconfig.getoption("--test-outputs-dir")) / "bakery",
+    )
 
 
 @pytest.fixture(scope="session")

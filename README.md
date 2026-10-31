@@ -112,6 +112,24 @@ Tests marked with `@pytest.mark.extended` only run when `RUGIX_TESTS_EXTENDED`
 is set. After each test, the plugin saves the serial output and command
 history of its VMs to `test-outputs/`.
 
+### Bake Diagnostics
+
+The `bakery` fixture saves the combined stdout and stderr of each image and
+bundle bake to `test-outputs/bakery/`, for example,
+`image-test-efi.log` and `bundle-test-efi.log`. A failed bake reports the log
+path and its last 20 output lines. Set `--test-outputs-dir` to change the
+output directory, or enable DEBUG logging to follow bake output while tests
+run:
+
+```sh
+pytest --log-cli-level=DEBUG
+```
+
+Logs preserve repeated lines and partial final lines. Each log contains the
+latest attempt for that artifact; reusing an already baked artifact leaves
+its log unchanged. Direct users of `BakeryBuilder` can set `bake_log_dir`;
+by default, logs go to the project's `test-outputs/bakery/` directory.
+
 ### Baking and Parallel Runs
 
 Rugix Bakery's caches are not safe for concurrent builds, so the `bakery`
