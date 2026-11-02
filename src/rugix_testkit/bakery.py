@@ -2,7 +2,8 @@
 
 The bake stage runs inside the Rugix Bakery container. The project directory
 is bind-mounted into the container, so artifacts appear on the host under
-``build/``.
+``build/``. Copies used by tests are kept under
+``.rugix-testkit/artifacts/`` so later bakes cannot remove them.
 """
 
 from __future__ import annotations
@@ -66,28 +67,35 @@ class BakeryBuilder:
     def bake_image(self, system: str) -> Path:
         """Bake a boot image. Returns the path to a copy for booting VMs.
 
-        ``bake bundle`` rewrites ``system.img`` in place, which would corrupt
-        the backing image of VMs booted from it.
+        Bakery replaces the system's output directory on each bake. Keep VM
+        backing images outside that directory so later bakes cannot remove them.
         """
         output = self.project_dir / "build" / system
-        image = output / "vm.img"
+        image = self.project_dir / ".rugix-testkit" / "artifacts" / system / "vm.img"
 
         def bake(log_path: Path) -> None:
             self._run(["bake", "image", *self._bake_args, system], log_path=log_path)
+            image.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(output / "system.img", image)
 
         self._bake_once(f"image-{system}", bake)
         return image
 
     def bake_bundle(self, system: str) -> Path:
-        """Bake an update bundle. Returns the path to ``system.rugixb``."""
-        self._bake_once(
-            f"bundle-{system}",
-            lambda log_path: self._run(
-                ["bake", "bundle", *self._bake_args, system], log_path=log_path
-            ),
+        """Bake an update bundle. Returns a copy that survives later bakes."""
+        bundle = (
+            self.project_dir / ".rugix-testkit" / "artifacts" / system / "system.rugixb"
         )
-        return self.project_dir / "build" / system / "system.rugixb"
+
+        def bake(log_path: Path) -> None:
+            self._run(["bake", "bundle", *self._bake_args, system], log_path=log_path)
+            bundle.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(
+                self.project_dir / "build" / system / "system.rugixb", bundle
+            )
+
+        self._bake_once(f"bundle-{system}", bake)
+        return bundle
 
     def test(self, workflow: str) -> None:
         """Run a ``rugix-bakery test`` workflow with the parameter overrides."""
