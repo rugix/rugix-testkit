@@ -14,7 +14,9 @@ class Drive:
 
     When *overlay* is ``True``, a temporary qcow2 overlay is created on top
     of *file* (which is left unmodified). The overlay is expanded to *size*
-    if given.
+    if given. Overlays use QEMU's ``cache=unsafe`` mode to avoid flushing
+    disposable data to host storage. Guest reboots retain the data, but a
+    host crash may corrupt the overlay.
     """
 
     file: Path
