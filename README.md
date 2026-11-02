@@ -134,9 +134,12 @@ by default, logs go to the project's `test-outputs/bakery/` directory.
 
 Rugix Bakery's caches are not safe for concurrent builds, so the `bakery`
 fixture runs one bake at a time, even across pytest-xdist workers, and bakes
-each image and bundle at most once per test run. The VMs of different workers
-run in parallel. Each VM uses 2 vCPUs and 2 GiB of memory, which determines how
-many workers a machine can sustain, for example, `pytest -n 4`.
+each image and bundle at most once per test run. It keeps copies of images and
+bundles in `.rugix-testkit/artifacts/` because Bakery replaces its output
+directory on each bake. These copies remain available to tests after later
+bakes. The VMs of different workers run in parallel. Each VM uses 2 vCPUs and
+2 GiB of memory, which determines how many workers a machine can sustain,
+for example, `pytest -n 4`.
 
 The plugin generates an SSH key in `.rugix-testkit/` and authorizes it with a
 parameter override of `core/ssh`. Because Bakery's layer cache keys include

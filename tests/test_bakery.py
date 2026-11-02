@@ -174,3 +174,31 @@ def test_bake(bakery):
     result.stdout.fnmatch_lines(["*bakery: first*", "*stderr*", "*last*"])
     assert (outputs / "bakery" / "image-test-efi.log").read_bytes() == _OUTPUT
     assert not (project / "test-outputs").exists()
+
+
+@pytest.mark.parametrize("first,second", [("image", "bundle"), ("bundle", "image")])
+def test_artifacts_survive_later_bakes(
+    project: Path, tmp_path: Path, first: str, second: str
+) -> None:
+    """Workers can reuse images and bundles after Bakery replaces its outputs."""
+    launcher = project / "run-bakery"
+    launcher.write_text(
+        "#!/bin/sh\nset -eu\n"
+        "rm -rf build/test-efi\n"
+        "mkdir -p build/test-efi\n"
+        'case "$2" in\n'
+        "  image) printf image > build/test-efi/system.img ;;\n"
+        "  bundle) printf bundle > build/test-efi/system.rugixb ;;\n"
+        "esac\n"
+    )
+    run_dir = tmp_path / "run"
+    bakery = BakeryBuilder(project, run_dir)
+    first_path = getattr(bakery, f"bake_{first}")("test-efi")
+    second_path = getattr(bakery, f"bake_{second}")("test-efi")
+
+    assert first_path.read_text() == first
+    assert second_path.read_text() == second
+    launcher.unlink()
+    other_worker = BakeryBuilder(project, run_dir)
+    assert getattr(other_worker, f"bake_{first}")("test-efi") == first_path
+    assert getattr(other_worker, f"bake_{second}")("test-efi") == second_path
