@@ -222,6 +222,8 @@ class QemuVM:
                 path = str(drive.file)
                 fmt = drive.format
             drive_str = f"format={fmt},file={path}"
+            if drive.overlay:
+                drive_str += ",cache=unsafe"
             if drive.interface:
                 drive_str = f"if={drive.interface},{drive_str}"
             cmd.extend(["-drive", drive_str])
